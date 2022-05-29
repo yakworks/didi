@@ -87,7 +87,9 @@ injector.invoke(['car', function(car) {
 ```
 
 
-### Registering Stuff
+### Registering Stuff in the Module 
+Services, providers, value objects, config objects, etc... There are many names used in the world of DI and IOC. 
+This project calls them components and there are 3 flavors; `type`, `factory`, `value`. 
 
 #### `type(token, Constructor)`
 
@@ -119,8 +121,75 @@ const module = {
 };
 ```
 
+## Function Annotations
 
-### Annotation
+The following are all valid ways of annotating function with injection arguments and are equivalent.
+
+### Option 1: Inferred
+
+```js
+// inferred (only works if code not minified/obfuscated) unless its specified in line, 
+//will inject the power config
+function createEngine(power){
+  ...use power.horses
+}
+
+//then in module config would specify the inline args in most cases because of minification
+const carModule = {
+  engine: ['factory', [ 'power', createEngine ]],
+  power:  ['value', {horses: 400}]
+};
+
+```
+
+### Option 2: $inject annotated
+
+```js
+// annotated
+function createEngine(power) { ... }
+
+createEngine.$inject = ['power'];
+
+//then in module config array notation is not needed
+const carModule = {
+  engine: ['factory', createEngine ],
+  power:  ['value', { horses: 400 }]
+};
+```
+
+### Option 3: Unpacking/Destructured Parameters
+
+This works with minification(in vite) and does not require babel.  
+
+```javascript
+// destructured object parameter
+function createEngine({ power }) { ... }
+
+//then in module config can take the simple route as well since function params are parsed and $inject is automatically added
+const carModule = {
+  engine: ['factory', createEngine ],
+  power:  ['value', { horses: 400 }]
+};
+
+```
+
+### Option 4: Babel Annotations/Comments
+
+```js
+// @inject
+function createEngine({powerService}){
+  ...use powerService
+}
+
+...module
+
+```
+
+### Annotations With Comments
+
+In order for these to work with minification the `#__PURE__` will need to be configured. 
+There are various options that may work using these [Babel annotations](https://babeljs.io/docs/en/babel-helper-annotate-as-pure)
+or plugins such as [babel-plugin-inject-args](https://github.com/hypothesis/babel-plugin-inject-args), depending on choice of usage. Its left to the user to investigate (but please do submit PR with successful options that can be outlined here)
 
 The injector looks up tokens based on argument names:
 
@@ -154,11 +223,65 @@ function Engine(/* config.engine.power */ power) {
   // assuming there is no direct binding for 'config.engine.power' token
 }
 
+
 const engineModule = {
   'config': ['value', {engine: {power: 1184}, other : {}}]
 };
+
+//with object destructureing it can be done like this
+function Engine({ 'config.engine.power': power }) { ... }
+
 ```
 
+### Destructured Function Parameters
+
+Kitchen Sink example that will work with minification (tested with vite's esbuild minifier)
+
+```javascript
+function makeEngine({ power: p, 'kinds.v8': kind, block: b = 'alum', fuel: f = 'diesel' }) {
+  return { 
+    getPower: () => p,
+    powerDesc: `${p}hp`,
+    kind,
+    blockType: b,
+    fuelType: f
+  };
+}
+
+const module = ({
+  engine: [ 'factory', makeEngine ],
+  block: [ 'factory', ({ power }) => power > 300 ? 'steel' : 'alum' ]
+  power: [ 'value', 400 ],
+  kinds: [ 'value', { v8: '8 cylinder', v6: '6 cylinder' } ],
+});
+
+const injector = new Injector([ module ]);
+const {getPower, powerDesc, kind, blockType, fuelType}  = injector.get('engine');
+
+console.log(`${getPower()} , ${powerDesc} , ${kind} , ${blockType} , ${fuelType})
+// output:  400 , 400hp , 8 cylinder , steel , diesel
+
+```
+> 📝 **Note:**  
+> The [injector tests]( test/injector.spec.js ) are a great place to look for examples. 
+> You will find one that uses the 'type' and a Class with destructured object injection
+
+### Injecting the injector
+
+In cases where you need the injector it can also be injected
+
+```javascript
+
+//can use a function or lambda
+const getEnginePower = ({injector}) => injector.get('engine').power
+
+const carModule = {
+  engine: ['factory', createEngine ],
+  enginePower:  ['factory', getEnginePower ]
+};
+
+let power = injector.get('enginePower')
+```
 
 ### Component Initialization
 
