@@ -1,6 +1,6 @@
 {
-  "name": "didi",
-  "version": "8.0.0",
+  "name": "@yakit/didi",
+  "version": "8.0.2-beta.1",
   "description": "Dependency Injection for JavaScript",
   "main": "dist/index.js",
   "module": "dist/index.esm.js",
@@ -25,7 +25,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git://github.com/nikku/didi.git"
+    "url": "git://github.com/yakworks/didi.git"
   },
   "keywords": [
     "di",
